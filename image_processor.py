@@ -57,11 +57,10 @@ class image_processor(object):
 		if not isinstance(videos, bool):
 			raise ValueError("'videos' must be either True or False")
 
-		
 		# Find all images and videos within basedir
-		_findfiles(basedir=basedir, images=images, videos=videos)
+		self._findfiles(basedir=basedir, images=images, videos=videos)
 		
-	def _findfiles(basedir, images, videos):
+	def _findfiles(self, basedir, images, videos):
 		"""
 		Finds all images and videos within basedir
 		"""
@@ -74,5 +73,19 @@ class image_processor(object):
 		# .mov)
 		video_files = glob.glob(basedir + '*')
 	
+		print("images_files", image_files)
+		print("video_files", video_files)
+
+	def rename(self):
+		"""
+		Method used to rename all files within basedir. Follows the 
+		filename format,
+		
+		image_<sub_directory>_imagenum.<original_file_format>
+		"""
+
+		return
 
 if __name__ == '__main__':
+
+	"Hello Friend"
