@@ -3,7 +3,7 @@ __description__ = 'Fixes the naming of all videos and images within a directory\
 					or folder by renaming all images and videos using the\
 					subdirectory and age of file as a basis'
 __author__ = 'James Gilmore'
-__date__ = '02/02/2019'
+__date__ = '21/02/2019'
 __version__ = '0.1'
 
 import os
