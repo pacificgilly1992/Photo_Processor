@@ -4,7 +4,7 @@ __description__ = 'Fixes the naming of all videos and images within a directory\
 					subdirectory and age of file as a basis'
 __author__ = 'James Gilmore'
 __date__ = '21/02/2019'
-__version__ = '0.2'
+__version__ = '0.1'
 
 import os
 import sys
@@ -179,8 +179,8 @@ class image_processor(object):
 		mask = np.argsort(video_creation_date, kind='mergesort')
 		self.video_files = self.video_files[mask]
 
-		# print("image_creation_date", image_creation_date)
-		# print("video_creation_date", video_creation_date)
+		print("image_creation_date", image_creation_date)
+		print("video_creation_date", video_creation_date)
 
 		# Rename all images/videos (FAKE Version)
 		for file_type, file_supname in zip([self.image_files, self.video_files],
