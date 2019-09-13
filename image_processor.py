@@ -3,18 +3,22 @@ __description__ = 'Fixes the naming of all videos and images within a directory\
                     or folder by renaming all images and videos using the\
                     subdirectory and age of file as a basis'
 __author__ = 'James Gilmore'
-__date__ = '21/02/2019'
-__version__ = '0.2'
+__date__ = '13/09/2019'
+__version__ = '0.5'
 
-import os
-import sys
 import glob
+import os
+import random
+import string
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
 
 import numpy as np
-
-from datetime import datetime
-
+from gilly_utilities import progress
 from PIL import Image
+
 
 class image_processor(object):
 
@@ -41,7 +45,8 @@ class image_processor(object):
         """
 
         # Prerequisites
-        self.image_formats = ['.jpg', '.JPG', '.tiff', '.bmp', '.png', '.PNG', '.gif', '.GIF', 'jpeg']
+        self.image_formats = ['.jpg', '.JPG', '.tiff', '.bmp', '.png', '.PNG', 
+            '.gif', '.GIF', '.jpeg']
         self.video_formats = ['.mp4', '.mov', '.MOV', '.avi']
 
         # Error checking
@@ -66,15 +71,21 @@ class image_processor(object):
         self.image_files, self.video_files = self._findfiles(basedir=basedir, 
                                             images=images, videos=videos)
 
+        print("[INFO] Processing {photo} photos and {video} videos".format(
+            photo=len(self.image_files), video=len(self.video_files)))
+
     def _findfiles(self, basedir, images, videos):
         """
         Finds all images and videos within basedir
         """
 
-        if images is True:
+        # Initalise the Path class
+        path = Path(basedir)
 
-            # Locate all files in selected directory
-            files = glob.iglob(basedir + '**/*', recursive=True)
+        # Locate all files in selected directory
+        files = list(path.glob('**/*'))
+
+        if images is True:
 
             # Subset image files for specific extension (e.g. .jpg, .JPG, 
             # .png, .tiff, .bmp)
@@ -85,9 +96,6 @@ class image_processor(object):
             image_files = None
 
         if videos is True:
-
-            # Locate all files in selected directory
-            files = glob.iglob(basedir + '**/*', recursive=True)
 
             # Subset video files for specific extension (e.g. .avi, .mp4,
             # .mov)
@@ -107,13 +115,13 @@ class image_processor(object):
         # Search in each file if the extension matches the end of the file
         files = []
         for file in filelist:
-            if file[-4:] in extensions:
+            if file.suffix in extensions:
                 files.append(file)
 
         # Return a subsetted filelist
         return files
 
-    def _get_creation(self, filelist, filetypes):
+    def _get_creation(self, file_list, file_type):
         """
         Finds the creation time for image and video files
 
@@ -127,25 +135,47 @@ class image_processor(object):
         https://stackoverflow.com/a/23064792
         """
 
-        if filetypes == 'images':
+        if file_type == 'images':
             creation_date = []
-            for file in filelist:
-                try:
-                    creation_date.append(Image.open(file)._getexif()[36867])
-                except (KeyError, TypeError, AttributeError):
-                    # Only works on Windows
-                    creation_date.append(
-                        datetime.fromtimestamp(
-                            os.path.getmtime(file)).strftime('%Y:%m:%d %H:%M:%S'))
+            with progress('Photos checked: %s/%s', size=len(file_list)) as prog:
+                for i, file in enumerate(file_list):
+                    
+                    # Update the progress bar.
+                    prog.update(i, len(file_list))
 
-        elif filetypes == 'videos':
-            creation_date = []
-            for file in filelist:
-                creation_date.append(
+                    try:
+                        creation_date.append(Image.open(file)._getexif()[36867])
+                    except (KeyError, TypeError, AttributeError):
+                        # Only works on Windows
+                        creation_date.append(
                             datetime.fromtimestamp(
                                 os.path.getmtime(file)).strftime('%Y:%m:%d %H:%M:%S'))
 
+        elif file_type == 'videos':
+            creation_date = []
+            with progress('Videos checked: %s/%s', size=len(file_list)) as prog:
+                for i, file in enumerate(file_list):
+
+                    # Update the progress bar.
+                    prog.update(i, len(file_list))
+
+                    creation_date.append(
+                                datetime.fromtimestamp(
+                                    os.path.getmtime(file)).strftime('%Y:%m:%d %H:%M:%S'))
+
         return creation_date
+
+    def _generate_temp_name(self, N=8):
+        """
+        Generate a tempory name by creating a random set of characters.
+
+        :param N : int, optional
+            Specify the number of characters you want the temporary name
+            to be.
+        """
+
+        return ''.join(random.SystemRandom().choice(
+            string.ascii_uppercase + string.digits) for _ in range(N))
 
     def rename(self):
         """
@@ -155,71 +185,101 @@ class image_processor(object):
         image_<sub_directory>_imagenum.<original_file_format>
         """
 
+        print("[INFO] Renaming your photos and videos.")
+
         # Convert self.image_files and self.video_files to numpy
         if self.image_files is not None:
-            self.image_files = np.array(self.image_files, dtype=str)
+            self.image_files = np.array(self.image_files, dtype=object)
 
         if self.video_files is not None:
-            self.video_files = np.array(self.video_files, dtype=str)
+            self.video_files = np.array(self.video_files, dtype=object)
+
+        print("[INFO] Getting the creation dates of all your photos...")
 
         # Get creation dates for all image files
-        image_creation_date = self._get_creation(self.image_files, filetypes='images')
+        image_creation_date = self._get_creation(self.image_files, 
+            file_type='images')
 
         # Sort image_files by date
         mask = np.argsort(image_creation_date, kind='mergesort')
         self.image_files = self.image_files[mask]
 
+        print("[INFO] Getting the creation dates of all your videos...")
+
         # Get creation dates for all video files
-        video_creation_date = self._get_creation(self.video_files, filetypes='videos')
+        video_creation_date = self._get_creation(self.video_files, 
+            file_type='videos')
 
         # Sort image_files by date
         mask = np.argsort(video_creation_date, kind='mergesort')
         self.video_files = self.video_files[mask]
 
-        # print("image_creation_date", image_creation_date)
-        # print("video_creation_date", video_creation_date)
+        print("[INFO] Creating tempory names for you photos and videos. " \
+            "This avoids errors if you run this program multiple times.")
 
         # Rename all images/videos (FAKE Version)
-        for file_type, file_supname in zip([self.image_files, self.video_files],
-            ['Image', 'Video']):
-            temp_names = []
-            for i, file in enumerate(file_type):
+        total_len = len(self.image_files) + len(self.video_files)
+        iter = 0
+        with progress('Videos checked: %s/%s', size=total_len) as prog:
+            for file_type, file_supname in zip([self.image_files, self.video_files],
+                    ['Image', 'Video']):
+                temp_names = []
+                
+                for i, file in enumerate(file_type):
+                    
+                    # Update the progress bar.
+                    prog.update(iter, total_len)
 
-                # Get directory name of file exists within
-                sup_dirname = os.path.basename(os.path.dirname(file))
+                    # Create new filename
+                    temp_names.append(file.parents[0] 
+                        / (self._generate_temp_name() + file.suffix))
 
-                # Create new filename
-                temp_names.append(os.path.dirname(file) + '/' + file_supname + '_' + sup_dirname + '_' + str(i).rjust(4,'0') + 'temp' + file[-4:].lower())
+                    # Rename file
+                    os.rename(file, temp_names[-1])
 
-                # Rename file
-                os.rename(file, temp_names[-1])
+                    iter += 1
 
-            if file_supname == 'Image':
-                image_files = temp_names
-            else:
-                video_files = temp_names
+                if file_supname == 'Image':
+                    image_files = temp_names
+                else:
+                    video_files = temp_names
+
+        print("[INFO] Now, lets rename all photos and videos into a nice " \
+            "organised format...")
 
         # Rename all images/videos (REAL Version)
-        for file_type, file_supname in zip([image_files, video_files],
-            ['Image', 'Video']):
-            for i, file in enumerate(file_type):
+        total_len = len(image_files) + len(video_files)
+        iter = 0
+        with progress('Videos checked: %s/%s', size=total_len) as prog:
+            for file_type, file_supname in zip([image_files, video_files],
+                    ['Image', 'Video']):
+                for i, file in enumerate(file_type):
+                    
+                     # Update the progress bar.
+                    prog.update(iter, total_len)
 
-                # Get directory name of file exists within
-                sup_dirname = os.path.basename(os.path.dirname(file))
+                    # Get directory name of file exists within
+                    sup_dirname = file.parents[0].name
 
-                # Create new filename
-                file_new = os.path.dirname(file) + '/' + file_supname + '_' + sup_dirname + '_' + str(i).rjust(4,'0') + file[-4:].lower()
+                    # Create new filename
+                    file_new = file.parents[0] / (file_supname + '_' 
+                        + sup_dirname + '_' + str(i).rjust(4,'0') 
+                        + file.suffix)
 
-                # Rename file
-                os.rename(file, file_new)
+                    # Rename file
+                    os.rename(file, file_new)
 
-
-        return
+                    iter += 1
 
 if __name__ == '__main__':
 
+    t_begin = time.time()
     basedir = 'C:/Users/james/pictures/Camera Roll'
+
+    print("Welcome to Photo Processor. We are going to organise the " \
+        "filenames of all your photos and videos")
+    print("The directory of choice is: {dir}".format(dir=basedir))
 
     image_processor(basedir=basedir).rename()
 
-    print("[INFO] All image and video files have been renamed!")
+    print("[INFO] All image and video files have been renamed! (In %.4fs)" % (time.time() - t_begin))
