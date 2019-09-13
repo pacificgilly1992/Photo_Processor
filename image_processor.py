@@ -19,7 +19,6 @@ import numpy as np
 from gilly_utilities import progress
 from PIL import Image
 
-
 class image_processor(object):
 
     def __init__(self, basedir, images=True, videos=True):
