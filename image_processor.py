@@ -19,6 +19,19 @@ import numpy as np
 from gilly_utilities import progress
 from PIL import Image
 
+"""
+New features to work on:
+* Addin hashing scheme to check for duplicate images.
+* Automatically choose the photo/video ID string based on the number of
+    photos/videos that need processing (i.e. len(photos) > 1000 but less 
+    than 10,000, then 4 digits are required to keep the filenames of 
+    equal length.
+* Add support for how to rename the photo/videos. At the moment we use 
+    a common fileformt ==> 
+        image_<sub_directory>_<imagenum>.<original_file_format>)
+* Need to add support for nested directories. Current only works when
+    all assets are in the same directory (I think).
+"""
 
 class image_processor(object):
 
