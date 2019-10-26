@@ -12,6 +12,8 @@ import random
 import string
 import sys
 import time
+import hashlib
+import argparse
 from datetime import datetime
 from pathlib import Path
 
@@ -78,14 +80,34 @@ class image_processor(object):
             raise IOError("'basedir' must link to an existing directory")
 
         # Ensure correct format of basedir
-        basedir = os.path.abspath(basedir)
+        self.basedir = os.path.abspath(basedir)
 
         # Find all images and videos within basedir
-        self.image_files, self.video_files = self._findfiles(basedir=basedir, 
+        self.image_files, self.video_files = self._findfiles(basedir=self.basedir, 
                                             images=images, videos=videos)
 
         print("[INFO] Processing {photo} photos and {video} videos".format(
             photo=len(self.image_files), video=len(self.video_files)))
+
+    @staticmethod
+    def _sha256sum(fpath):
+        """
+        Calculate the sha256 hash of a file quickly. This is used to
+        ensure the Baton report downloaded into '/tmp/' is the same one
+        we are uploading to Mediator.
+        """
+
+        h = hashlib.sha256()
+
+        with open(fpath, 'rb') as file:
+            while True:
+                # Reading is buffered, so we can read smaller chunks.
+                chunk = file.read(h.block_size)
+                if not chunk:
+                    break
+                h.update(chunk)
+
+        return h.hexdigest()
 
     def _findfiles(self, basedir, images, videos):
         """
@@ -190,12 +212,70 @@ class image_processor(object):
         return ''.join(random.SystemRandom().choice(
             string.ascii_uppercase + string.digits) for _ in range(N))
 
-    def rename(self):
+    def _remove_duplicates(self):
+        """
+        Checks for duplicate files using hashing algorithm.
+        """
+
+        # Hash all files
+        total_len = len(self.image_files) + len(self.video_files)
+        iter = 0
+        hash_files = {'Image': [], 'Video': []}
+        with progress('Files hashed: %s/%s', size=total_len) as prog:
+            for file_type, file_supname in zip([self.image_files, self.video_files],
+                    ['Image', 'Video']):
+                for file in file_type:
+
+                    # Update the progress bar.
+                    prog.update(iter, total_len)
+
+                    hash_files[file_supname].append(self._sha256sum(file))
+
+                    iter += 1
+        
+                # Convert hash_files into numpy arrays for complex indexing.
+                hash_files[file_supname] = np.asarray(hash_files[file_supname])
+
+        print("[INFO] Removing all but one duplicate images...")
+
+        # Check for duplicates
+        for file_type, file_supname in zip([self.image_files, self.video_files],
+                    ['Image', 'Video']):
+
+            # Convert hash_files into numpy arrays for complex indexing.
+            file_type = np.asarray(file_type)
+
+            # Work out the non_unique hashes
+            unique, counts = np.unique(hash_files[file_supname])
+            not_unique = unique[counts > 1]
+
+            # Loop over each duplicate hash and find the files that match that
+            # hash value and remove all but one of the files.
+            for hash in not_unique:
+                for file in file_type[hash_files == hash][1:]:
+                    os.remove(file)
+
+        # Now need to recheck the files
+        self.image_files, self.video_files = self._findfiles(basedir=self.basedir, 
+                                            images=True, videos=True)
+        
+        # Convert self.image_files and self.video_files to numpy
+        if self.image_files is not None:
+            self.image_files = np.array(self.image_files, dtype=object)
+
+        if self.video_files is not None:
+            self.video_files = np.array(self.video_files, dtype=object)
+
+    def rename(self, remove_duplicates=False):
         """
         Method used to rename all files within basedir. Follows the 
         filename format,
         
         image_<sub_directory>_imagenum.<original_file_format>
+
+        :param remove_duplicates : bool, optional
+            Remove the duplicate images and videos. This is done by hashing
+            all the images and videos (SHA256) and finding clashes.
         """
 
         print("[INFO] Renaming your photos and videos.")
@@ -207,8 +287,13 @@ class image_processor(object):
         if self.video_files is not None:
             self.video_files = np.array(self.video_files, dtype=object)
 
-        print("[INFO] Getting the creation dates of all your photos...")
+        # Check for duplicate files if requested.
+        if remove_duplicates:
+            print("[INFO] Checking for duplicate image and video files")
+            self._remove_duplicates()
 
+        print("[INFO] Getting the creation dates of all your photos...")
+    
         # Get creation dates for all image files
         image_creation_date = self._get_creation(self.image_files, 
             file_type='images')
@@ -276,8 +361,8 @@ class image_processor(object):
 
                     # Create new filename
                     file_new = file.parents[0] / (file_supname + '_' 
-                        + sup_dirname + '_' + str(i).rjust(4,'0') 
-                        + file.suffix)
+                        + sup_dirname.replace(' ', '_') + '_' 
+                        + str(i).rjust(4,'0') + file.suffix)
 
                     # Rename file
                     os.rename(file, file_new)
@@ -286,13 +371,46 @@ class image_processor(object):
 
 if __name__ == '__main__':
 
+    parser = argparse.ArgumentParser(
+        description='Rename all image and video files within a chosen ' \
+            'directory')
+
+    parser.add_argument('--path', action="store", dest="path", type=str,
+        help="The absolute or relative path pointing to the directory that " \
+            " you want to rename all image and video files for.",
+        required=True)
+
+    parser.add_argument('--images', action='store_true', dest="images",
+        help="Specify whether you want to process the images in the directory")
+
+    parser.add_argument('--videos', action='store_true', dest="videos",
+        help="Specify whether you want to process the videos in the directory")
+    
+    parser.add_argument('--remove_duplicates', action='store_true', 
+        dest="remove_duplicates",
+        help="Specify whether you want remove any duplicate image or video. " \
+            "This method will calculate the sha256 hash of the files and " \
+            "cross reference all files to find any duplicates. Therefore " \
+            "this method is safe and will NOT mistakenly delete non "
+            "duplicate files.")
+
+    arg = parser.parse_args()
+
+    if not arg.images and not arg.videos:
+        raise ValueError("Must specify either --images or --videos (or both) "
+            "to rename.")
+
     t_begin = time.time()
-    basedir = 'C:/Users/james/pictures/Camera Roll'
 
     print("Welcome to Photo Processor. We are going to organise the " \
         "filenames of all your photos and videos")
-    print("The directory of choice is: {dir}".format(dir=basedir))
+    print("The directory of choice is: {dir}".format(dir=arg.path))
 
-    image_processor(basedir=basedir).rename()
+    # Initalise the image_processor.
+    content = image_processor(basedir=arg.path, images=arg.images, 
+        videos=arg.videos)
+    
+    # Rename the videos and images.
+    content.rename(remove_duplicates=arg.remove_duplicates)
 
     print("[INFO] All image and video files have been renamed! (In %.4fs)" % (time.time() - t_begin))
