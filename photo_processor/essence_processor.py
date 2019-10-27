@@ -393,4 +393,5 @@ if __name__ == '__main__':
     # Rename the videos and images.
     content.rename(remove_duplicates=arg.remove_duplicates)
 
-    print("[INFO] All image and video files have been renamed! (In %.4fs)" % (time.time() - t_begin))
+    print("[INFO] All image and video files have been renamed! (In " \
+        "{:.4f}s)".format(time.time() - t_begin))
