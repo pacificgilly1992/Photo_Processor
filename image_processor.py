@@ -3,8 +3,8 @@ __description__ = 'Fixes the naming of all videos and images within a directory\
                     or folder by renaming all images and videos using the\
                     subdirectory and age of file as a basis'
 __author__ = 'James Gilmore'
-__date__ = '13/09/2019'
-__version__ = '0.5'
+__date__ = '27/10/2019'
+__version__ = '0.6'
 
 import glob
 import os
@@ -23,7 +23,6 @@ from PIL import Image
 
 """
 New features to work on:
-* Addin hashing scheme to check for duplicate images.
 * Automatically choose the photo/video ID string based on the number of
     photos/videos that need processing (i.e. len(photos) > 1000 but less 
     than 10,000, then 4 digits are required to keep the filenames of 
