@@ -37,9 +37,9 @@ New features to work on:
 class image_processor(object):
 
     # Define the image and video formats to check for.
-    image_formats = ['.jpg', '.JPG', '.tiff', '.bmp', '.png', '.PNG', '.gif', 
-        '.GIF', '.jpeg']
-    video_formats = ['.mp4', '.mov', '.MOV', '.avi']
+    image_formats = ['.jpg', '.jpeg', '.tiff', '.bmp', '.png', '.gif', '.heic',
+        '.heif', '.heifs', '.hvif', '.avci', '.avcs', '.svg', '.dxf']
+    video_formats = ['.mp4', '.mov', '.avi', '.hevc']
 
     def __init__(self, basedir, images=True, videos=True):
         """
@@ -149,7 +149,7 @@ class image_processor(object):
         """
 
         # Search in each file if the extension matches the end of the file
-        return [file for file in filelist if file.suffix in extensions]
+        return [file for file in filelist if file.suffix.lower() in extensions]
 
     def _get_creation(self, file_list, file_type):
         """
