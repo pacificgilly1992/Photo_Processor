@@ -85,13 +85,6 @@ class image_processor(object):
         self.image_files, self.video_files = self._findfiles(basedir=self.basedir, 
                                             images=images, videos=videos)
 
-        # Convert self.image_files and self.video_files to numpy
-        if self.image_files is not None:
-            self.image_files = np.array(self.image_files, dtype=str)
-
-        if self.video_files is not None:
-            self.video_files = np.array(self.video_files, dtype=str)
-
         print("[INFO] Processing {photo} photos and {video} videos".format(
             photo=self.image_files.size, video=self.video_files.size))
 
@@ -140,7 +133,7 @@ class image_processor(object):
 
         else:
             video_files = None
-
+        
         return image_files, video_files
 
     def _subset_files(self, filelist, extensions):
@@ -148,8 +141,9 @@ class image_processor(object):
         Subset filelist with extensions specified
         """
 
-        # Search in each file if the extension matches the end of the file
-        return [file for file in filelist if file.suffix.lower() in extensions]
+        # Search in each file if the extension matches the end of the file.
+        return np.array([file for file in filelist \
+            if file.suffix.lower() in extensions], dtype=str)
 
     def _get_creation(self, file_list, file_type):
         """
@@ -258,13 +252,6 @@ class image_processor(object):
         # Now need to recheck the files
         self.image_files, self.video_files = self._findfiles(basedir=self.basedir, 
                                             images=True, videos=True)
-        
-        # Convert self.image_files and self.video_files to numpy
-        if self.image_files is not None:
-            self.image_files = np.array(self.image_files, dtype=object)
-
-        if self.video_files is not None:
-            self.video_files = np.array(self.video_files, dtype=object)
 
     def rename(self, remove_duplicates=False):
         """
