@@ -37,6 +37,11 @@ New features to work on:
 
 class image_processor(object):
 
+    # Define the image and video formats to check for.
+    image_formats = ['.jpg', '.JPG', '.tiff', '.bmp', '.png', '.PNG', '.gif', 
+        '.GIF', '.jpeg']
+    video_formats = ['.mp4', '.mov', '.MOV', '.avi']
+
     def __init__(self, basedir, images=True, videos=True):
         """
         Finds all files within basedir and renames all files within all 
@@ -58,11 +63,6 @@ class image_processor(object):
         videos : boolean, optional, default = True
             Specify whether to process videos within the subdirectories.
         """
-
-        # Prerequisites
-        self.image_formats = ['.jpg', '.JPG', '.tiff', '.bmp', '.png', '.PNG', 
-            '.gif', '.GIF', '.jpeg']
-        self.video_formats = ['.mp4', '.mov', '.MOV', '.avi']
 
         # Error checking
         if not isinstance(basedir, str): 
@@ -86,8 +86,15 @@ class image_processor(object):
         self.image_files, self.video_files = self._findfiles(basedir=self.basedir, 
                                             images=images, videos=videos)
 
+        # Convert self.image_files and self.video_files to numpy
+        if self.image_files is not None:
+            self.image_files = np.array(self.image_files, dtype=str)
+
+        if self.video_files is not None:
+            self.video_files = np.array(self.video_files, dtype=str)
+
         print("[INFO] Processing {photo} photos and {video} videos".format(
-            photo=len(self.image_files), video=len(self.video_files)))
+            photo=self.image_files.size, video=self.video_files.size))
 
     @staticmethod
     def _sha256sum(fpath):
@@ -109,7 +116,7 @@ class image_processor(object):
 
         return h.hexdigest()
 
-    def _findfiles(self, basedir, images, videos):
+    def _findfiles(self, basedir, images=False, videos=False):
         """
         Finds all images and videos within basedir
         """
@@ -120,24 +127,19 @@ class image_processor(object):
         # Locate all files in selected directory
         files = list(path.glob('**/*'))
 
-        if images is True:
-
-            # Subset image files for specific extension (e.g. .jpg, .JPG, 
-            # .png, .tiff, .bmp)
+        # Subset image files for specific extension (e.g. .jpg, .JPG, .png, 
+        # .tiff, .bmp)
+        if images:
             image_files = self._subset_files(files, self.image_formats)
 
         else:
-
             image_files = None
 
-        if videos is True:
-
-            # Subset video files for specific extension (e.g. .avi, .mp4,
-            # .mov)
+        # Subset video files for specific extension (e.g. .avi, .mp4, .mov)
+        if videos:
             video_files = self._subset_files(files, self.video_formats)
 
         else:
-
             video_files = None
 
         return image_files, video_files
@@ -148,13 +150,7 @@ class image_processor(object):
         """
 
         # Search in each file if the extension matches the end of the file
-        files = []
-        for file in filelist:
-            if file.suffix in extensions:
-                files.append(file)
-
-        # Return a subsetted filelist
-        return files
+        return [file for file in filelist if file.suffix in extensions]
 
     def _get_creation(self, file_list, file_type):
         """
@@ -234,7 +230,7 @@ class image_processor(object):
                     iter += 1
         
                 # Convert hash_files into numpy arrays for complex indexing.
-                hash_files[file_supname] = np.asarray(hash_files[file_supname])
+                hash_files[file_supname] = np.array(hash_files[file_supname], dtype=str)
 
         print("[INFO] Removing all but one duplicate images...")
 
@@ -243,16 +239,21 @@ class image_processor(object):
                     ['Image', 'Video']):
 
             # Convert hash_files into numpy arrays for complex indexing.
-            file_type = np.asarray(file_type)
+            file_type = np.array(file_type, dtype=str)
 
             # Work out the non_unique hashes
-            unique, counts = np.unique(hash_files[file_supname])
+            unique, counts = np.unique(hash_files[file_supname], 
+                return_counts=True)
             not_unique = unique[counts > 1]
+
+            print("[INFO] Number of duplicate {type} found are: {num}".format(
+                type=file_supname.lower() + 's', num=not_unique.size))
 
             # Loop over each duplicate hash and find the files that match that
             # hash value and remove all but one of the files.
             for hash in not_unique:
-                for file in file_type[hash_files == hash][1:]:
+                for file in file_type[hash_files[file_supname] == hash][1:]:
+                    print("[INFO] Removing file: {file}".format(file=file))
                     os.remove(file)
 
         # Now need to recheck the files
@@ -279,13 +280,6 @@ class image_processor(object):
         """
 
         print("[INFO] Renaming your photos and videos.")
-
-        # Convert self.image_files and self.video_files to numpy
-        if self.image_files is not None:
-            self.image_files = np.array(self.image_files, dtype=object)
-
-        if self.video_files is not None:
-            self.video_files = np.array(self.video_files, dtype=object)
 
         # Check for duplicate files if requested.
         if remove_duplicates:
