@@ -3,8 +3,8 @@ __description__ = "Fixes the naming of all videos and images within a directory\
                     or folder by renaming all images and videos using the\
                     subdirectory and age of file as a basis"
 __author__ = "James Gilmore"
-__date__ = "27/10/2019"
-__version__ = "0.6"
+__date__ = "13/08/2022"
+__version__ = "1.0"
 
 import argparse
 import hashlib
@@ -27,12 +27,9 @@ New features to work on:
     than 10,000, then 4 digits are required to keep the filenames of 
     equal length.
 * Add support for how to rename the photo/videos. At the moment we use 
-    a common fileformt ==> 
+    a common fileformat ==> 
         image_<sub_directory>_<imagenum>.<original_file_format>)
-* Need to add support for nested directories. Current only works when
-    all assets are in the same directory (I think).
 """
-
 
 class image_processor(object):
 
